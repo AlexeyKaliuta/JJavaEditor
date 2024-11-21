@@ -14,7 +14,7 @@ class DocumentLine(var content: String, var lineIndex: Int, var nextLine: Docume
         }
 
     var bolContext: LineContext? = null
-        set(value) {
+        private set (value) {
             if (field == value) {
                 return
             }
@@ -26,6 +26,16 @@ class DocumentLine(var content: String, var lineIndex: Int, var nextLine: Docume
             }
         }
 
+    @Synchronized
+    fun setBolContext(newContext: LineContext?, expectedContext: LineContext?): Boolean {
+        val currentContext = bolContext
+           if (currentContext != expectedContext) {
+            return currentContext == newContext
+        }
+        bolContext = newContext
+        return true
+    }
+
     val eolContext: LineContext?
         get() = description?.eolContext
 
@@ -33,6 +43,7 @@ class DocumentLine(var content: String, var lineIndex: Int, var nextLine: Docume
         get() = content.length
 
     fun getBol(): DocumentPoint = DocumentPoint(lineIndex, 0)
+    @Suppress("MemberVisibilityCanBePrivate")
     fun getEol(): DocumentPoint = DocumentPoint(lineIndex, content.length)
     fun getRange(): DocumentRange = DocumentRange(getBol(), getEol())
 

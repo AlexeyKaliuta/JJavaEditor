@@ -91,17 +91,20 @@ class JJavaTextAreaUI(private val component: JJavaTextArea) : ComponentUI() {
         if (lineIndex >= component.doc.linesCount) return
         val line = component.doc.getLine(lineIndex)
         if (line.length == 0) return
+        line.isDrawn = true
         paintHighlights(line, g, viewArea)
 
         val lineCoordinates = pointToCoordinates(line.getBol(), viewArea)
 
-        if (line.description?.segments != null) {
+        if (line.description?.hasSegments == true) {
             paintParsedLine(line, g, lineCoordinates)
         } else {
             g.color = getColor(line.bolContext)
             g.drawString(line.content, lineCoordinates.x, lineCoordinates.y + ascent)
+            if (line.bolContext == null )
+                component.requestLineParsing(line)
         }
-        line.isDrawn = true
+
     }
 
     private fun paintHighlights(documentLine: DocumentLine, g: Graphics, viewArea: Rectangle) {
@@ -133,17 +136,17 @@ class JJavaTextAreaUI(private val component: JJavaTextArea) : ComponentUI() {
         g: Graphics,
         coordinates: Point,
     ) {
-        val chars = line.content.toCharArray()
+        val text = line.content
         var index = 0
         for (region in line.description!!.segments!!) {
             if (index < region.startOffset) {
-                paintSegment(index, region.startOffset, DEFAULT_COLOR, chars, g, coordinates)
+                paintSegment(index, region.startOffset, DEFAULT_COLOR, text, g, coordinates)
             }
-            paintSegment(region.startOffset, region.endOffset + 1, getColor(region.kind), chars, g, coordinates)
+            paintSegment(region.startOffset, region.endOffset + 1, getColor(region.kind), text, g, coordinates)
             index = region.endOffset + 1
         }
         if (index < line.length) {
-            paintSegment(index, chars.size, DEFAULT_COLOR, chars, g, coordinates)
+            paintSegment(index, text.length, DEFAULT_COLOR, text, g, coordinates)
         }
     }
 
@@ -151,14 +154,12 @@ class JJavaTextAreaUI(private val component: JJavaTextArea) : ComponentUI() {
         startIndex: Int,
         endIndex: Int,
         color: Color,
-        chars: CharArray,
+        text: String,
         g: Graphics,
         coordinates: Point,
     ) {
         g.color = color
-        g.drawChars(
-            chars,
-            startIndex, endIndex - startIndex,
+        g.drawString(text.substring(startIndex, endIndex),
             coordinates.x + startIndex * colWidth, coordinates.y + ascent
         )
     }
@@ -174,7 +175,6 @@ class JJavaTextAreaUI(private val component: JJavaTextArea) : ComponentUI() {
             g.fillRect(caretViewArea.x, caretViewArea.y, caretViewArea.width, caretViewArea.height)
         }
     }
-
 
     companion object {
         private const val CARET_WIDTH = 2

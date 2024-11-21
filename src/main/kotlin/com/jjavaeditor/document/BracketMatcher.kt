@@ -21,7 +21,7 @@ class BracketMatcher {
             val line = doc.getLine(caretPoint)
             if (caretPoint.offset > line.content.length) return Pair(null, null)
             val description = line.description
-            if (description?.segments == null || !description.containsAnyBracket()) return Pair(null, null)
+            if (description?.hasSegments != true || !description.containsAnyBracket) return Pair(null, null)
 
             val caretOffset = caretPoint.offset
             val segments = description.segments!!
@@ -80,7 +80,7 @@ class BracketMatcher {
         }
 
         private fun searchMatchingBracketInCurrentLine(
-            currentBracketLevel: Int, bracketType: BracketType, startFromSegment: Int, segments: Array<LineSegment>
+            currentBracketLevel: Int, bracketType: BracketType, startFromSegment: Int, segments: List<LineSegment>
         ): Pair<Int, Int?> {
             var bracketLevel = currentBracketLevel
             val increment = if (bracketLevel > 0) 1 else -1
@@ -112,13 +112,11 @@ class BracketMatcher {
                 if (lineIndex < 0 || lineIndex == lCount) return Pair(bracketLevel, null)
 
                 val info = doc.getLine(lineIndex).description ?: return Pair(bracketLevel, null)
-                val bracketInfo = info.getBracketAggregation(bracketType)
-                if (bracketInfo != null) {
-                    if (bracketInfo.containsMatchingBracket(bracketLevel))
-                        return Pair(bracketLevel, lineIndex)
 
-                    bracketLevel += bracketInfo.levelCumulata
-                }
+                if (info.containsMatchingBracket(bracketType, bracketLevel))
+                    return Pair(bracketLevel, lineIndex)
+                bracketLevel += info.getLevelCumulata(bracketType)
+
                 lineIndex += increment
             }
         }

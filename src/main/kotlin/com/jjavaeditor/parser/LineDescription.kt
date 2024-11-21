@@ -1,44 +1,91 @@
 package com.jjavaeditor.parser
 
-import com.jjavaeditor.parser.SegmentKinds.Companion.isOpenBracket
-import com.jjavaeditor.parser.SegmentKinds.Companion.toBracketType
-
 
 class LineDescription(val bolContext: LineContext) {
-    var segments: Array<LineSegment>? = null
+
+    var compressed: ByteArray? = null
+    var arrayItemSize: UByte = 0u
+    val segments: List<LineSegment>?
+        get() {
+            return LineSegment.deserialize(compressed, arrayItemSize)
+        }
+
+    val hasSegments: Boolean
+        get() {
+            return compressed != null
+        }
+
     var eolContext: LineContext = LineContext.None
 
-    private var roundBrackets: BracketsAggregation? = null
-    private var squareBrackets: BracketsAggregation? = null
-    private var curlyBrackets: BracketsAggregation? = null
+    var containsAnyBracket: Boolean = false
+    private var roundLevelCumulata: Byte = 0
+    private var roundMaxDrawdown: Byte = 0
 
-    fun getBracketAggregation(bracketType: BracketType, createIfAbsent: Boolean = false): BracketsAggregation? {
-        return when (bracketType) {
-            BracketType.Round -> roundBrackets ?: if (createIfAbsent) {
-                roundBrackets = BracketsAggregation(); roundBrackets
-            } else null
+    private var squareLevelCumulata: Byte = 0
+    private var squareMaxDrawdown: Byte = 0
 
-            BracketType.Square -> squareBrackets ?: if (createIfAbsent) {
-                squareBrackets = BracketsAggregation(); squareBrackets
-            } else null
+    private var curlyLevelCumulata: Byte = 0
+    private var curlyMaxDrawdown: Byte = 0
 
-            BracketType.Curly -> curlyBrackets ?: if (createIfAbsent) {
-                curlyBrackets = BracketsAggregation(); curlyBrackets
-            } else null
+    fun registerBracket(kind: SegmentKind) {
+        containsAnyBracket = true
+        when (kind) {
+            SegmentKinds.CURLY_OPEN_BRACKET ->
+                curlyLevelCumulata++
+
+            SegmentKinds.ROUND_OPEN_BRACKET ->
+                roundLevelCumulata++
+
+            SegmentKinds.SQUARE_OPEN_BRACKET ->
+                squareLevelCumulata++
+
+            SegmentKinds.CURLY_CLOSE_BRACKET -> {
+                curlyLevelCumulata--
+                if (curlyLevelCumulata < curlyMaxDrawdown) {
+                    curlyMaxDrawdown = curlyLevelCumulata
+                }
+            }
+
+            SegmentKinds.ROUND_CLOSE_BRACKET -> {
+                roundLevelCumulata--
+                if (roundLevelCumulata < roundMaxDrawdown) {
+                    roundMaxDrawdown = roundLevelCumulata
+                }
+            }
+
+            SegmentKinds.SQUARE_CLOSE_BRACKET -> {
+                squareLevelCumulata--
+                if (squareLevelCumulata < squareMaxDrawdown) {
+                    squareMaxDrawdown = squareLevelCumulata
+                }
+            }
         }
     }
 
-    fun containsAnyBracket(): Boolean {
-        return roundBrackets != null || curlyBrackets != null || squareBrackets != null
+    fun containsMatchingBracket(bracketType: BracketType, bracketLevel: Int): Boolean {
+        return when (bracketType) {
+            BracketType.Round ->
+                if (bracketLevel > 0) bracketLevel <= -roundMaxDrawdown
+                else bracketLevel >= roundMaxDrawdown - roundLevelCumulata
+
+            BracketType.Square ->
+                if (bracketLevel > 0) bracketLevel <= -squareMaxDrawdown
+                else bracketLevel >= squareMaxDrawdown - squareLevelCumulata
+
+            BracketType.Curly ->
+                if (bracketLevel > 0) bracketLevel <= -curlyMaxDrawdown
+                else bracketLevel >= curlyMaxDrawdown - curlyLevelCumulata
+        }
     }
 
-    fun registerBracket(kind: SegmentKind){
-        val aggregation = getBracketAggregation(kind.toBracketType(), true)!!
-        aggregation.registerBracket(kind.isOpenBracket())
+    fun getLevelCumulata(bracketType: BracketType): Byte {
+        return when (bracketType) {
+            BracketType.Round -> roundLevelCumulata
+            BracketType.Square -> squareLevelCumulata
+            BracketType.Curly -> curlyLevelCumulata
+        }
     }
 }
-
-data class LineSegment(val kind: SegmentKind, val startOffset: Int, val endOffset: Int)
 
 enum class LineContext {
     None, MultilineComment, MultilineLiteral

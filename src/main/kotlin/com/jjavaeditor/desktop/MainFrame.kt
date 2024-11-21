@@ -4,11 +4,14 @@ import com.jjavaeditor.component.JJavaTextArea
 import java.awt.BorderLayout
 import java.io.File
 import javax.swing.*
+import javax.swing.event.CaretEvent
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.system.exitProcess
 
 
 class MainFrame : JFrame() {
+    private var statusLabel: JLabel? = null
+    private lateinit var textControl: JJavaTextArea
     private var openedFilePath: String = ""
 
     init {
@@ -21,15 +24,32 @@ class MainFrame : JFrame() {
     private fun createUI() {
         createTextArea()
         createMenuBar()
+        createStatusBar()
         setFilePath("")
     }
 
-    private lateinit var textControl: JJavaTextArea
+
 
     private fun createTextArea() {
         textControl = JJavaTextArea()
+        textControl.addCaretListener { e: CaretEvent? ->
+            statusLabel?.text = "Caret line ${e!!.dot + 1} Selection line ${e.mark + 1}"
+        }
         val scrollPane = JScrollPane(textControl)
         contentPane.add(scrollPane, BorderLayout.CENTER)
+
+    }
+
+    private fun createStatusBar() {
+        statusLabel = JLabel()
+        statusLabel!!.setBorder(
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createEtchedBorder(),
+                BorderFactory.createEmptyBorder(5, 10, 5, 10)
+            )
+        )
+
+        add(statusLabel!!, BorderLayout.SOUTH)
     }
 
     private fun createMenuBar() {
@@ -80,7 +100,7 @@ class MainFrame : JFrame() {
     {
         val fileChooser = JFileChooser()
         fileChooser.fileFilter = FileNameExtensionFilter("JAVA files", "java")
-        if (!openedFilePath.isEmpty())
+        if (openedFilePath.isNotEmpty())
             fileChooser.currentDirectory = File(openedFilePath)
         val result = fileChooser.showOpenDialog(this)
         if (result != JFileChooser.APPROVE_OPTION)
@@ -100,7 +120,7 @@ class MainFrame : JFrame() {
     private fun saveAsFile(){
         val fileChooser = JFileChooser()
         fileChooser.fileFilter = FileNameExtensionFilter("JAVA files", "java")
-        if (!openedFilePath.isEmpty())
+        if (openedFilePath.isNotEmpty())
             fileChooser.currentDirectory = File(openedFilePath)
         val result = fileChooser.showSaveDialog(this)
         if (result != JFileChooser.APPROVE_OPTION)

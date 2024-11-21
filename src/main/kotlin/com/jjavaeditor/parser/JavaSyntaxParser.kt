@@ -158,8 +158,11 @@ class JavaSyntaxParser {
                     }
                 }
             }
-            if (segments.any())
-                description.segments = segments.toTypedArray()
+            if (segments.any()) {
+                val serializationResult = LineSegment.serialize(segments)
+                description.arrayItemSize = serializationResult.second
+                description.compressed = serializationResult.first
+            }
             return description
         }
 

@@ -3,6 +3,7 @@ package com.jjavaeditor.component
 import com.jjavaeditor.document.DocumentPoint
 import com.jjavaeditor.document.DocumentRange
 import javax.swing.Timer
+import javax.swing.event.CaretEvent
 
 
 class Caret(val component: JJavaTextArea) {
@@ -35,6 +36,7 @@ class Caret(val component: JJavaTextArea) {
         if (isCaretMoved || isSelectionChanged) {
             component.setSelectedRange(getSelectedDocumentRange())
         }
+        component.fireCaretUpdate(DocumentCaretEvent(position.lineIndex, selectionPosition.lineIndex, this))
     }
 
     private fun changeCaretPosition(newPosition: DocumentPoint) {
@@ -53,5 +55,16 @@ class Caret(val component: JJavaTextArea) {
 
     fun getSelectedDocumentRange(): DocumentRange {
         return DocumentRange.safeCreate(position, selectionPosition)
+    }
+}
+
+class DocumentCaretEvent(private val position: Int, private val selectionPosition: Int, source: Any?) :
+    CaretEvent(source) {
+    override fun getDot(): Int {
+        return position
+    }
+
+    override fun getMark(): Int {
+        return selectionPosition
     }
 }

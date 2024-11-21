@@ -1,7 +1,10 @@
+@file:Suppress("unused")
+
 package com.jjavaeditor.component
 
 import com.jjavaeditor.action.Actions.Companion.initializeDefaultActions
 import com.jjavaeditor.document.*
+import com.jjavaeditor.parser.ParsingManager
 import com.jjavaeditor.undo.UndoRedoManager
 import com.jjavaeditor.undo.UndoRedoManagerOperation
 import java.awt.*
@@ -10,6 +13,8 @@ import java.awt.datatransfer.StringSelection
 import java.io.Reader
 import java.io.Writer
 import javax.swing.*
+import javax.swing.event.CaretEvent
+import javax.swing.event.CaretListener
 import kotlin.math.max
 
 
@@ -21,6 +26,7 @@ class JJavaTextArea : JComponent(), Scrollable {
     val caret: Caret = Caret(this)
     val mouseEventHandler: MouseEventHandler = MouseEventHandler(this)
     private val undoRedoManager: UndoRedoManager = UndoRedoManager()
+    private val parsingManager: ParsingManager = ParsingManager()
 
     private var sizeDimension = Dimension(0, 0)
 
@@ -33,16 +39,23 @@ class JJavaTextArea : JComponent(), Scrollable {
 
         initializeDefaultActions()
 
-        doc.notifyLineModified = { documentLine ->
+        doc.notifyLineModified = ::requestLineParsing
+
+        parsingManager.notifyLineParsed = { documentLine: DocumentLine ->
             if (documentLine.isDrawn) {
                 documentLine.isDrawn = false
                 damageViewArea(documentLine.getRange())
-                if (documentLine.lineIndex == caret.position.lineIndex)
-                {
+                if (documentLine.lineIndex == caret.position.lineIndex) {
                     bracketsHighlighter.searchMatchedBracket(caret.position)
                 }
             }
         }
+    }
+
+    fun requestLineParsing(documentLine: DocumentLine) {
+        if (documentLine.bolContext != null)
+            return parsingManager.enqueue(documentLine)
+        parsingManager.enqueueWithAssumption(documentLine, doc)
     }
 
     override fun getUI(): JJavaTextAreaUI = ui as JJavaTextAreaUI
@@ -114,7 +127,6 @@ class JJavaTextArea : JComponent(), Scrollable {
         val newRange = historyItem.insertRange
         bracketsHighlighter.setHighlighter(null)
         caret.setPosition(newRange.end)
-        bracketsHighlighter.searchMatchedBracket(caret.position)
         if (refreshRange != null && newRange.isSingleLine && doc.getTextDimension() == sizeDimension) {
             this.damageViewArea(refreshRange)
         } else {
@@ -224,7 +236,10 @@ class JJavaTextArea : JComponent(), Scrollable {
 
     internal fun setSelectedRange(range: DocumentRange) {
         highlighter.set(range)
-        bracketsHighlighter.setHighlighter(null)
+        if (range.isPoint)
+            bracketsHighlighter.searchMatchedBracket(range.begin)
+        else
+            bracketsHighlighter.setHighlighter(null)
     }
 
     fun selectAll() {
@@ -279,6 +294,29 @@ class JJavaTextArea : JComponent(), Scrollable {
     }
 
     fun dispose() {
-        doc.dispose()
+        parsingManager.dispose()
+    }
+
+    fun addCaretListener(listener: CaretListener) {
+        listenerList.add(CaretListener::class.java, listener)
+    }
+
+    fun removeCaretListener(listener: CaretListener) {
+        listenerList.remove(CaretListener::class.java, listener)
+    }
+
+    fun getCaretListeners(): Array<CaretListener> {
+        return listenerList.getListeners(CaretListener::class.java)
+    }
+
+    internal fun fireCaretUpdate(e: CaretEvent?) {
+        val listeners = listenerList.listenerList
+        var i = listeners.size - 2
+        while (i >= 0) {
+            if (listeners[i] === CaretListener::class.java) {
+                (listeners[i + 1] as CaretListener).caretUpdate(e)
+            }
+            i -= 2
+        }
     }
 }

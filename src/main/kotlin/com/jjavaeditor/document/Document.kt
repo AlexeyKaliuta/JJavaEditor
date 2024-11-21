@@ -1,28 +1,28 @@
 package com.jjavaeditor.document
 
-import com.jjavaeditor.parser.*
+import com.jjavaeditor.parser.LineContext
 import com.jjavaeditor.undo.UndoRedoActionResult
 import java.awt.Dimension
 import java.io.Reader
 import java.io.Writer
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 
 class Document {
     private var lines: MutableList<DocumentLine> = mutableListOf()
 
     var notifyLineModified: ((DocumentLine) -> Unit)? = null
-
-    private val executor: ExecutorService
+        set(value) {
+            field = value
+            for (line in lines) {
+                line.notifyChange = value
+            }
+        }
 
     init {
-        executor = Executors.newSingleThreadExecutor()
         setText(listOf())
     }
 
     var maxOffset: Int = 0
-        private set
 
     val linesCount: Int
         get() = lines.size
@@ -64,18 +64,6 @@ class Document {
         return sb.toString()
     }
 
-    private fun request(line: DocumentLine) {
-        executor.submit(Runnable {
-            val bolContext = line.bolContext ?: return@Runnable
-            line.description = JavaSyntaxParser.generateDescription(line.content, bolContext)
-            notifyLineModified?.invoke(line)
-            val nextLine = line.nextLine
-            if (nextLine != null) {
-                nextLine.bolContext = line.eolContext
-            }
-        })
-    }
-
     fun setText(newLines: List<String>) {
         for (line in lines) {
             line.notifyChange = null
@@ -91,8 +79,6 @@ class Document {
             return
         var nextNode = if (lineIndex == lines.size) null else lines[lineIndex]
         val prevNode = if (lineIndex == 0) null else lines[lineIndex - 1]
-
-        nextNode?.bolContext = null
 
         val newList =
             List(content.size) { index ->
@@ -111,13 +97,13 @@ class Document {
             }
             line.nextLine = nextNode
 
-            line.notifyChange = ::request
+            line.notifyChange = notifyLineModified
             nextNode = line
         }
         lines.addAll(lineIndex, newList)
 
         prevNode?.nextLine = nextNode
-        nextNode!!.bolContext = prevNode?.eolContext ?: LineContext.None
+        nextNode!!.setBolContext(prevNode?.eolContext ?: LineContext.None, null)
     }
 
     private fun removeLines(fromIndex: Int, toIndex: Int) {
@@ -126,13 +112,9 @@ class Document {
         val nextNode = if (toIndex == lines.size - 1) null else lines[toIndex + 1]
         val prevNode = if (fromIndex == 0) null else lines[fromIndex - 1]
 
-        if (prevNode != null) {
-            prevNode.nextLine = nextNode
-        }
-        if (nextNode != null) {
+        prevNode?.nextLine = nextNode
 
-            nextNode.bolContext = if (prevNode != null) prevNode.eolContext else LineContext.None
-        }
+        nextNode?.setBolContext(prevNode?.eolContext ?: LineContext.None, nextNode.bolContext)
 
         for (i: Int in fromIndex..toIndex) {
             lines[fromIndex].notifyChange = null
@@ -213,10 +195,6 @@ class Document {
         addLines(newLines.subList(1, newLines.size).toList(), insertPoint.lineIndex + 1)
 
         return newContentRange
-    }
-
-    fun dispose() {
-        executor.shutdown()
     }
 
     fun read(stream: Reader) {

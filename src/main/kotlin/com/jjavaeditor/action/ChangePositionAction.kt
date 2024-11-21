@@ -24,7 +24,6 @@ internal constructor(
             dot = component.navigator.changePosition(dot, direction, scope, caret)
 
             caret.setPosition(dot, withSelection)
-            component.bracketsHighlighter.searchMatchedBracket(caret.position)
 
             if (savedOffset != null) {
                 caret.savedOffset = savedOffset
