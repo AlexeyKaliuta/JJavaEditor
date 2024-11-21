@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="JJaveEditor" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.jjavaeditor.desktop.MainKt" />
+    <module name="JJavaEditor" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
