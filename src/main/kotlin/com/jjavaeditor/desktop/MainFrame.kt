@@ -5,6 +5,7 @@ import java.awt.BorderLayout
 import java.io.File
 import javax.swing.*
 import javax.swing.event.CaretEvent
+import javax.swing.filechooser.FileFilter
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.system.exitProcess
 
@@ -17,7 +18,7 @@ class MainFrame : JFrame() {
     init {
         createUI()
         defaultCloseOperation = EXIT_ON_CLOSE
-        setSize(800, 600)
+        setSize(800, 900)
         setLocationRelativeTo(null)
     }
 
@@ -99,7 +100,18 @@ class MainFrame : JFrame() {
     private fun openFile()
     {
         val fileChooser = JFileChooser()
-        fileChooser.fileFilter = FileNameExtensionFilter("JAVA files", "java")
+        fileChooser.fileSelectionMode = JFileChooser.FILES_ONLY
+        fileChooser.isAcceptAllFileFilterUsed = false
+        fileChooser.fileFilter = object : FileFilter() {
+            override fun accept(f: File): Boolean {
+                return f.isDirectory || (f.exists() && f.extension == "java")
+            }
+
+            override fun getDescription(): String {
+                return "JAVA Files"
+            }
+        }
+
         if (openedFilePath.isNotEmpty())
             fileChooser.currentDirectory = File(openedFilePath)
         val result = fileChooser.showOpenDialog(this)
@@ -120,6 +132,7 @@ class MainFrame : JFrame() {
     private fun saveAsFile(){
         val fileChooser = JFileChooser()
         fileChooser.fileFilter = FileNameExtensionFilter("JAVA files", "java")
+        fileChooser.fileSelectionMode = JFileChooser.FILES_ONLY
         if (openedFilePath.isNotEmpty())
             fileChooser.currentDirectory = File(openedFilePath)
         val result = fileChooser.showSaveDialog(this)

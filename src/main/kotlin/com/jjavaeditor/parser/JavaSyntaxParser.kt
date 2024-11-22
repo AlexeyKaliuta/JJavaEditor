@@ -92,7 +92,7 @@ class JavaSyntaxParser {
                                 continue
                             }
 
-                            if (currentChar == 'L' || currentChar == 'f' || currentChar == 'd') offset++
+                            if (currentChar == 'L' || currentChar == 'f' || currentChar == 'd' || currentChar == 'u') offset++
                             break
                         }
                         segments.add(LineSegment(SegmentKinds.NUMERIC, startOffset, offset - 1))
@@ -139,8 +139,17 @@ class JavaSyntaxParser {
                         }
                         val startOffset = offset
                         while (++offset < length) {
-                            val currentChar = line[offset]
-                            if (currentChar == '"') {
+                            if (line[offset] == '"') {
+                                offset++
+                                break
+                            }
+                        }
+                        segments.add(LineSegment(SegmentKinds.LITERAL, startOffset, offset - 1))
+                    }
+                    c == '\'' -> {
+                        val startOffset = offset
+                        while (++offset < length) {
+                            if (line[offset] == '\'') {
                                 offset++
                                 break
                             }
